@@ -13,9 +13,11 @@
 #define IntSize 4
 #define ArraySize (CacheSize/IntSize)
 #define IndexArraySize (ArraySize*10)
-#define BigArraySize (ArraySize*4)
+#define PayloadArraySize (ArraySize*4)
 
-std::array<int, BigArraySize> payload;
+#define IntPerLine (CacheLineSize/IntSize)
+
+std::array<int, PayloadArraySize> payload;
 
 std::array<int, IndexArraySize> indices;
 
@@ -39,8 +41,18 @@ void fill_with_random_int_values( Iter start, Iter end, int min, int max)
 int gather()
 {
     int sum = 0;
-    for (auto index: indices) {
-        sum += payload[index];
+    int index_offset = 0;
+    for (int i = 0; i < IndexArraySize - 1024; i++) {
+        int index = indices[i];
+        int real_index = (index + index_offset) % PayloadArraySize;
+        int tmp = 0;
+        for (int x = 0; x < 256; x++) {
+            tmp += payload[indices[i+x]];
+        }
+        index_offset +=
+            tmp +
+            payload[real_index];
+        sum += index_offset;
     }
     return sum;
 }
@@ -63,7 +75,7 @@ int main(int argc, char *argv[])
     // generate useless flusher
     fill_with_random_int_values(flusher.begin(), flusher.end(), -10000, 10000);
 
-    fill_with_random_int_values(indices.begin(), indices.end(), 0, BigArraySize - 1);
+    fill_with_random_int_values(indices.begin(), indices.end(), 0, PayloadArraySize - 1);
 
     auto useless = flush_cache();
 
@@ -85,6 +97,8 @@ int main(int argc, char *argv[])
         << ", useless: " << useless
         << std::endl;
     }
+
+    useless = flush_cache();
 
     {
     // scattered:
