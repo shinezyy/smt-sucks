@@ -12,7 +12,7 @@
 
 #define IntSize 4
 #define ArraySize (CacheSize/IntSize)
-#define IndexArraySize (ArraySize*10)
+#define IndexArraySize (ArraySize*2)
 #define PayloadArraySize (ArraySize*4)
 
 #define IntPerLine (CacheLineSize/IntSize)
