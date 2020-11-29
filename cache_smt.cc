@@ -11,7 +11,6 @@
 #include <vector>
 #include <future>
 
-
 #define CacheSize (1<<(23+1))
 #define CacheLineSize (1<<6)
 
@@ -58,7 +57,7 @@ void gather_thread(int local_count_init, std::promise<int> && p)
         int index = indices[i];
         int tmp = 0;
         for (int x = 0; x < InnerLoopCount; x++) {
-            tmp += payload[indices[i+x]];
+            tmp += payload[IntPerLine * indices[i+x]];
         }
         // if (i < 10 || i > IndexArraySize - 1034) {
         //     std::cout << tmp << std::endl;
@@ -120,7 +119,7 @@ int gather()
         //std::cout << real_index << std::endl;
         int tmp = 0;
         for (int x = 0; x < InnerLoopCount; x++) {
-            tmp += payload[indices[i+x]];
+            tmp += payload[IntPerLine * indices[i+x]];
         }
 
         // if (i < 10 || i > IndexArraySize - 1034) {
@@ -156,11 +155,13 @@ int main(int argc, char *argv[])
     // generate payload
     fill_with_random_int_values(payload.begin(), payload.end(), -10000, 10000);
     // generate useless flusher
-    fill_with_random_int_values(flusher.begin(), flusher.end(), -10000, 10000);
+    // fill_with_random_int_values(flusher.begin(), flusher.end(), -10000, 10000);
 
-    fill_with_random_int_values(indices.begin(), indices.end(), 0, PayloadArraySize - 1);
+    fill_with_random_int_values(indices.begin(), indices.end(),
+            0, (PayloadArraySize - 1)/IntPerLine);
 
-    auto useless = flush_cache();
+    auto useless = 0;
+    // auto useless = flush_cache();
 
     using namespace std::chrono;
 
@@ -184,7 +185,7 @@ int main(int argc, char *argv[])
     //     << std::endl;
     // }
 
-    useless = flush_cache();
+    // useless = flush_cache();
 
     int old_sum;
     {
@@ -205,23 +206,23 @@ int main(int argc, char *argv[])
     old_sum = sum;
     }
 
-    // {
-    // // scattered, in parallel:
-    // auto start = high_resolution_clock::now();
-    // int sum = parallel_gather();
-    // auto end   = high_resolution_clock::now();
-    // auto duration = duration_cast<microseconds>(end - start);
+    {
+    // scattered, in parallel:
+    auto start = high_resolution_clock::now();
+    int sum = parallel_gather();
+    auto end   = high_resolution_clock::now();
+    auto duration = duration_cast<microseconds>(end - start);
 
-    // std::cout << "It takes "
-    //     << double(duration.count()) * microseconds::period::num /
-    //     microseconds::period::den<< " seconds to read "
-    //     << (int64_t) NumOuterLoop * (1 + InnerLoopCount) << " scattered elements in parallel"
-    //     << std::endl;
-    // std::cout << "sum: " << sum
-    //     << ", useless: " << useless
-    //     << std::endl;
-    // assert(sum == old_sum);
+    std::cout << "It takes "
+        << double(duration.count()) * microseconds::period::num /
+        microseconds::period::den<< " seconds to read "
+        << (int64_t) NumOuterLoop * (1 + InnerLoopCount) << " scattered elements in parallel"
+        << std::endl;
+    std::cout << "sum: " << sum
+        << ", useless: " << useless
+        << std::endl;
+    assert(sum == old_sum);
 
-    // }
+    }
     return 0;
 }
